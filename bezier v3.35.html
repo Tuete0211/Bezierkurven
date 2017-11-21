@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <link href="style.css" rel="stylesheet" type="text/css">
+    <title>Canvas</title>
+</head>
+<body>
+    <canvas id="beziers" width="1200" height="600">
+		Alternative content in case the browser
+		does not support Canvas.
+	</canvas>
+  <section>
+    <div class="box">
+    <p><font color="white"><button onclick="new_points()">New!</button> </font></p>
+  <p><font color="white">Supporting lines? <input type="checkbox" id="help"></font></p>
+  <p><font color="white">t = <output id="t_Output" value="0.5"></output> <input type="range" id="t_Input" min="0" max="1" step="0.02" value="0.5"> </font></p>
+  <p><font color="white">P(t) = <output id="p(t)_x"></output>, <output id="p(t)_y"></output></font></p>
+</div>
+  </section>
+  <script>
+		var canvas;
+		var ctx;
+
+/***Declaring Variables*/
+    var width  = 1200;
+    var height = 600;
+    var num_points = 5; //number of points
+    var CP = Array(num_points);
+    for (var i=0; i<num_points; i++) {
+      CP[i] = getRandomPoint(width, height);}
+    var helpline_width = 0.2;
+    var line_width = 2;
+    var point_size = 3;
+    var back_color = '#303030';
+    var helpline_color = '#00c7ff';
+    var line_color = '#ff1010';
+    var point_color = '#40f040';
+
+
+    function myFunction(){            //Is activated when something is changed on the UI
+      t = document.getElementById("t_Input").value;
+      document.getElementById("t_Output").innerHTML = t;
+      ctx.fillStyle = back_color;               //clear the ground
+      ctx.fillRect(0, 0, width, height);
+      bezierv2(CP);                              //build the curve
+
+      for (var i=0; i<num_points; i++) {
+        point(CP[i]);
+      }
+        bezierv4(CP);                           //creating aditional supporting lines and P(t)
+    }
+
+/** Functions concerning Points */
+
+  		function P(x, y) {              //creating a new point
+  			this.x = x;
+  			this.y = y;
+  		}
+
+      function new_points(){                            //change the number of points, the are created randomly
+        num_points = window.prompt("Please enter a number of points", "5");
+        CP.length = 0;        //clear the Array CP, otherwise problem with "renew by clicking"
+  			for (var i=0; i<num_points; i++) {
+  				CP[i] = getRandomPoint(width, height);
+  			}
+        draw();
+      }
+
+  		function getRandomPoint(width, height) {  //creating random point
+  			return new P(Math.floor(Math.random() * width),
+  					     Math.floor(Math.random() * height));
+  		}
+
+      function getDistance(P0, P1) {        //calculating distance
+          var distance;
+          var x = P1.x - P0.x;
+          var y = P1.y - P0.y;
+
+          distance = Math.sqrt((x*x) + (y*y));
+          return distance;
+      }
+
+      function control(P0, P1, t){           //creating a point between P0,P1, with it's condition t between 0 - 1
+        return new P(((P1.x-P0.x)*t)+P0.x,((P1.y-P0.y)*t)+P0.y);
+      }
+/** Functions for Painting*/
+
+		function point (P)                //Paint a point
+		{
+			ctx.fillStyle = point_color;
+			ctx.fillRect(P.x-point_size/2,P.y-point_size/2,point_size,point_size);
+		}
+
+		function line (P0, P1) {         //Paint a line
+			ctx.beginPath();
+			ctx.moveTo(P0.x, P0.y);
+			ctx.lineTo(P1.x, P1.y);
+			ctx.stroke();
+		}
+
+    function helpline (P0, P1) {     //Paint a supporting line
+      ctx.lineWidth = helpline_width;     //change form and color
+      ctx.strokeStyle = helpline_color;
+			ctx.beginPath();
+			ctx.moveTo(P0.x, P0.y);
+			ctx.lineTo(P1.x, P1.y);
+			ctx.stroke();
+      ctx.lineWidth = line_width;       //change form and color back
+      ctx.strokeStyle = line_color;
+		}
+
+      function draw(){      //first clear the ground, than creating a curve and painting points
+
+  			if (ctx) {
+  				ctx.fillStyle = back_color;
+  				ctx.fillRect(0, 0, width, height);
+  				ctx.lineWidth = line_width;
+  				ctx.strokeStyle = line_color;
+
+          bezierv2(CP);
+
+  				for (var i=0; i<num_points; i++) {
+  					point(CP[i]);
+  				}
+  			}
+  		}
+
+
+/** Creating a Beziercurve */
+
+      function bezierv2 (FP) {            //main algorithm to creat a curve through DeCasteljau-Algorithm
+
+        if (getDistance(FP[0], FP[FP.length-1]) <= 10) {
+          /**When the distance between two Points is less than 10 px a line is painted*/
+          for (var i=0; i<FP.length-1;i++)
+          line(FP[i], FP[i+1]);
+        }
+
+        else {
+          var orig_length = FP.length;
+          var breakpoint = 0.5;
+
+          for (var i = orig_length-1; i>0;i--){     //counting down because blocks of newly created points are getting smaller each step
+                var new_length = FP.length-i;
+
+                for (var j = 1; j<=i; j++){         //counting up because of the position within one block
+                    var pos = new_length-2+j;   //position within the main Array(FP)
+                    FP.push(control(FP[pos], FP[pos+1], breakpoint)); //adding new values to the main Array(FP)
+                }
+          }
+
+          /*creating two new Arrays, split at the middle point*/
+          var FP1 = Array(num_points);
+          var pos_FP1 = 0;
+          var pos_FP = 0;
+          FP1[pos_FP1] = FP[pos_FP];
+          for (var a = orig_length; a>=2; a--){
+            pos_FP += a;
+            pos_FP1++;
+            FP1[pos_FP1] = FP[pos_FP];
+          }
+          /**the neccesary values are stored in the main Array(FP).
+          To find them you have to add to the index every time one less.
+          */
+          var FP2 = Array(num_points);
+          var pos_FP2 = 0;
+          var pos_FP = FP.length-1;
+            FP2[pos_FP2] = FP[pos_FP - 1];
+          for (var b = 0; b<=orig_length-1; b++){
+            pos_FP -= b;
+            FP2[pos_FP2] = FP[pos_FP];
+            pos_FP2++;
+          }
+          //starting the function for the first half
+          bezierv2(FP1);
+          //starting the function for the last half
+          bezierv2(FP2);
+          FP.length = orig_length; // the length of the main Array must be set back to it's original length, to prevent a bug in the next call
+        }
+}
+
+    function bezierv4(FP){      //creating a point on the curve with a condition t between 0 - 1
+      var orig_length = FP.length;
+
+        for (var i = orig_length-1; i>0;i--){
+            var new_length = FP.length-i;
+
+            for (var j = 1; j<=i; j++){
+                var pos = new_length-2+j;   //position within the main Array(FP)
+                FP.push(control(FP[pos], FP[pos+1], document.getElementById("t_Input").value)); //adding new values to the main Array(FP)
+                if(document.getElementById("help").checked == true){
+                helpline(FP[pos], FP[pos+1]);   //painting blue helplines
+                point(FP[pos]);
+                point(FP[pos+1]);
+              }
+            }
+        }
+      point(FP[FP.length-1]);
+      document.getElementById("p(t)_x").innerHTML = (FP[FP.length-1].x).toFixed(3);         //the last value within the main Array is the searched point
+      document.getElementById("p(t)_y").innerHTML = (FP[FP.length-1].y).toFixed(3);
+      FP.length = orig_length;      // the length of the main Array must be set back to it's original length, to prevent a bug in the next call
+    }
+
+
+/** Change on the UI */
+    document.getElementById("t_Input").addEventListener("change", myFunction);
+    document.getElementById("help").addEventListener("change", myFunction);
+
+
+		window.addEventListener('load', function () {
+			var canvas = document.getElementById('beziers');
+			// check for browser support
+			if (canvas && canvas.getContext) {
+				canvas.addEventListener( 'mousedown', draw, false );
+				ctx = canvas.getContext('2d');
+				if (ctx) {
+					draw();
+				}
+			}
+		}, false);
+
+	</script>
+</body>
+</html>
